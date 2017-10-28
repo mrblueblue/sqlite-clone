@@ -2,6 +2,37 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+struct Result_t {
+  struct timespec tstart;
+  struct timespec tend;
+  double execution_time_ms;
+};
+typedef struct Result_t Result;
+
+enum MetaCommandResult_t {
+  META_COMMAND_SUCCESS,
+  META_COMMAND_UNRECOGNIZED_COMMAND
+};
+typedef enum MetaCommandResult_t MetaCommandResult;
+
+enum PrepareResult_t {
+  PREPARE_SUCCESS,
+  PREPARE_UNRECOGNIZED_STATEMENT
+};
+typedef enum PrepareResult_t PrepareResult;
+
+enum StatementType_t {
+  STATEMENT_INSERT,
+  STATEMENT_SELECT
+};
+typedef enum StatementType_t StatementType;
+
+struct Statement_t {
+  StatementType type;
+};
+typedef struct Statement_t Statement;
 
 struct InputBuffer_t {
   char* buffer;
@@ -19,6 +50,53 @@ InputBuffer* new_input_buffer() {
 
   return input_buffer;
 };
+
+Result* new_result() {
+  Result* result = malloc(sizeof(Result));
+  struct timespec tstart={0,0};
+  struct timespec tend={0,0};
+
+  result->tstart = tstart;
+  result->tend = tend;
+
+  return result;
+}
+
+MetaCommandResult do_meta_command(InputBuffer* input_buffer) {
+  if (strcmp(input_buffer->buffer, ".exit") == 0) {
+    exit(EXIT_SUCCESS);
+  } else {
+    return META_COMMAND_UNRECOGNIZED_COMMAND;
+  }
+}
+
+PrepareResult prepare_statement(InputBuffer* input_buffer,
+                                Statement* statement) {
+  if (strncmp(input_buffer->buffer, "insert", 6) == 0) {
+    statement->type = STATEMENT_INSERT;
+    return PREPARE_SUCCESS;
+  }
+  if (strcmp(input_buffer->buffer, "select") == 0) {
+    statement->type = STATEMENT_SELECT;
+    return PREPARE_SUCCESS;
+  }
+
+  return PREPARE_UNRECOGNIZED_STATEMENT;
+}
+
+Result* execute_statement(Statement* statement, Result* result) {
+  clock_gettime(CLOCK_MONOTONIC, &(result->tstart));
+  switch (statement->type) {
+    case STATEMENT_INSERT:
+      printf("this is where we would insert\n");
+      break;
+    case STATEMENT_SELECT:
+      printf("this is where we would select\n");
+      break;
+  }
+
+  return result;
+}
 
 void print_prompt() {
   printf("db > ");
@@ -44,10 +122,23 @@ int main(int argc, char* argv[]) {
   while (true) {
     print_prompt();
     read_input(input_buffer);
-    if (strcmp(input_buffer->buffer, ".exit") == 0) {
-      exit(EXIT_SUCCESS);
+
+    if (strncmp(input_buffer->buffer, ".", 1) == 0) {
+      do_meta_command(input_buffer);
     } else {
-      printf("Unrecognized command '%s'.\n", input_buffer->buffer);
+      Statement statement;
+      Result* result = new_result();
+      switch (prepare_statement(input_buffer, &statement)) {
+        case PREPARE_SUCCESS:
+          break;
+        case PREPARE_UNRECOGNIZED_STATEMENT:
+          printf("Unrecognized keyword at start of %s\n",
+                 input_buffer->buffer);
+          continue;
+      }
+
+      execute_statement(&statement, result);
+      printf("Executed.\n");
     }
   }
 }
