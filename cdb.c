@@ -85,7 +85,6 @@ PrepareResult prepare_statement(InputBuffer* input_buffer,
 }
 
 Result* execute_statement(Statement* statement, Result* result) {
-  clock_gettime(CLOCK_MONOTONIC, &(result->tstart));
   switch (statement->type) {
     case STATEMENT_INSERT:
       printf("this is where we would insert\n");
@@ -100,6 +99,11 @@ Result* execute_statement(Statement* statement, Result* result) {
 
 void print_prompt() {
   printf("db > ");
+}
+
+double get_execution_time (Result* result) {
+  return ((double)result->tend.tv_sec + 1.0e-9*result->tend.tv_nsec) -
+  ((double)result->tstart.tv_sec + 1.0e-9*result->tstart.tv_nsec);
 }
 
 void read_input(InputBuffer* input_buffer) {
@@ -137,8 +141,10 @@ int main(int argc, char* argv[]) {
           continue;
       }
 
+      clock_gettime(CLOCK_MONOTONIC, &(result->tstart));
       execute_statement(&statement, result);
-      printf("Executed.\n");
+      clock_gettime(CLOCK_MONOTONIC, &(result->tend));
+      printf("Executed in %.5f seconds.\n", get_execution_time(result));
     }
   }
 }
